@@ -8,3 +8,5 @@ keystore.properties
 release/output/
 *.apk
 *.aab
+
+.DS_Store
