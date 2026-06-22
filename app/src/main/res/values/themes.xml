@@ -2,7 +2,7 @@
 <resources>
     <style name="Theme.FishingMaxxed" parent="Theme.Material3.DayNight.NoActionBar" />
     <style name="Theme.FishingMaxxed.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/fishing_splash_bg_light</item>
+        <item name="windowSplashScreenBackground">@color/fishing_splash_bg</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_fishing_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.FishingMaxxed</item>
     </style>

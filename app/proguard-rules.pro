@@ -1,1 +1,1 @@
-
+-keep class androidx.camera.** { *; }

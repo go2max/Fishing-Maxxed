@@ -1,49 +1,43 @@
 {
   "app": "Fishing Maxxed",
   "applicationId": "com.maxxed.fishingmaxxed",
-  "versionName": "0.1.0",
-  "versionCode": 1,
-  "targetSdk": 35,
+  "versionName": "1.0.0",
+  "versionCode": 2,
+  "assessmentDate": "2026-06-21",
   "status": "NOT_READY_BLOCKED",
-  "artifacts": {
-    "apkPath": "/Users/maxmac/Desktop/MaxxedMobileApps/codex/same-day-maxxed-apks/FishingMaxxed/release/output/Fishing-MAXXED-release.apk",
-    "apkSha256": "d0dfd22eac5e02c92b6bee697549ff6049a94f9f87de2698dd4f74c77ef9a8ff",
-    "aabPath": "/Users/maxmac/Desktop/MaxxedMobileApps/codex/same-day-maxxed-apks/FishingMaxxed/release/output/Fishing-MAXXED-release.aab",
-    "aabSha256": "18b0f35d600af4d4c2fe5b3be0f77123423348db6d90675b28d9cd9971f96e0b"
-  },
-  "signerSha256": "d0460741a63f128b928a96ce7bbd516563067f391fd7a7b43630bd45fe75b065",
-  "tests": {
-    "unitTests": "testDebugUnitTest passed in the 2026-06-22 release gate run",
-    "lint": "lintDebug completed with 8 warnings and no errors",
-    "assembleRelease": "passed",
-    "bundleRelease": "passed",
-    "artifactVerification": [
-      "apksigner verify passed for release APK",
-      "jarsigner verify passed for release AAB"
-    ]
-  },
-  "warnings": [
-    "Outdated dependency warnings were reported by lint.",
-    "The v26 launcher resource qualifier is unnecessary with minSdk 26.",
-    "MainActivity still contains static placeholder fishing content instead of a real production workflow."
+  "implemented": [
+    "CameraX capture and retake",
+    "known-reference measurement with correction handles and uncertainty",
+    "manual searchable species confirmation",
+    "private local catch journal and personal leaderboard",
+    "privacy-safe default CSV export",
+    "fail-closed local regulation evaluator",
+    "equal Masculine and Feminine feature access"
   ],
-  "physicalDeviceTested": {
-    "device": "Samsung SM-S908U",
-    "result": "partial_smoke_only",
-    "notes": [
-      "Release APK installed successfully after uninstalling an older differently signed package.",
-      "Launch smoke test succeeded with no immediate crash reported by `adb shell monkey`.",
-      "The captured log window did not show an immediate app crash attributed to `com.maxxed.fishingmaxxed`.",
-      "Mandatory product validation could not be completed because the production fishing and regulation features are not implemented."
-    ]
+  "regulationCoverage": {
+    "dataset": "bundled-demo-v1",
+    "authoritative": false,
+    "keeperAuthorization": false,
+    "unsupportedResult": "Unable to verify - check official regulations",
+    "dailyWorldwideCoverageClaimed": false
+  },
+  "artifacts": {
+    "signedApk": null,
+    "signedAab": null
+  },
+  "verification": {
+    "gradle": "blocked before configuration: Gradle 8.9 download returned HTTP 403",
+    "unitTests": "not run",
+    "lint": "not run",
+    "deviceTests": "not run",
+    "signing": "not run"
   },
   "blockingIssues": [
-    "No real capture or known-reference fish measurement workflow is implemented.",
-    "No species catalog, confirmation, or full journal management workflow exists.",
-    "No private exact-location storage/redaction pipeline exists.",
-    "No California rule engine, rule-package management, freshness handling, or rollback support exists.",
-    "No privacy enforcement exists for the intended export and regulation workflows.",
-    "No permission-denial and recovery experience exists for the required camera/location workflow."
+    "Run unit tests, lint, and release builds with an available Gradle 8.9 distribution.",
+    "Complete capture-to-reopen testing on a physical Android device at multiple distances and lighting conditions.",
+    "Provide and verify a private release key before producing signed APK/AAB artifacts.",
+    "Add a production-trusted regulation package key and independently maintained source process before any Keeper authorization.",
+    "Replace the placeholder developer contact in the privacy policy before Play submission."
   ],
-  "readyStatement": "Blocked. Signed artifacts and a basic launch smoke test exist, but the current build remains a scaffold and does not satisfy the required production feature gate for Play internal testing."
+  "readyStatement": "NOT READY. Functional source is present, but build, signing, device evidence, and authoritative regulation data are not verified."
 }

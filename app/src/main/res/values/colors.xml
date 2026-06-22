@@ -1,5 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="fishing_splash_bg">#101519</color>
-    <color name="fishing_splash_bg_light">#F7FAFC</color>
-</resources>
+<?xml version="1.0" encoding="utf-8"?><resources><color name="fishing_splash_bg">#F5F8F9</color></resources>

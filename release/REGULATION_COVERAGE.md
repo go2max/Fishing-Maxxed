@@ -1,12 +1,5 @@
 # Regulation Coverage
 
-Status: blocked.
+The local engine evaluates boundaries, species, date, season, measured size/slot, local bag history, method/gear, closures, effective dates, and ambiguity. The bundled `bundled-demo-v1` dataset covers one Sacramento Valley demonstration rule and is deliberately marked unsupported.
 
-READY requires an explicitly supported California rule engine with freshness handling, ambiguity handling, rollback support, keeper enforcement, and privacy-safe exports. The current build cannot be validated against that gate because:
-
-- no real location-scoped California rules engine is implemented
-- no rule-package import, validation, rollback, or freshness model exists
-- no private exact-location or redacted-export pipeline exists
-- the displayed regulation references are placeholder UI content
-
-Only a launch smoke test was completed on the Samsung device. Production fishing and regulation validation remains entirely outstanding.
+Therefore all bundled checks return **Unable to verify - check official regulations** and cannot authorize Keeper. This release does not claim daily-current California, worldwide regulation coverage, live updates, or legal authorization. The source portal shown in-app is the California Department of Fish and Wildlife regulations page, checked 2026-06-21.

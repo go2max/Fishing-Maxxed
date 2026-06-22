@@ -1,226 +1,290 @@
 package com.maxxed.fishingmaxxed
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
+import android.location.LocationManager
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.tooling.preview.Devices
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import java.io.File
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.math.hypot
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
-        setContent {
-            val prefs = remember { getSharedPreferences("fishing_theme", Context.MODE_PRIVATE) }
-            var mode by rememberSaveable { mutableStateOf(runCatching { FishingThemeMode.valueOf(prefs.getString("fishing_mode", FishingThemeMode.MASCULINE.name)!!) }.getOrDefault(FishingThemeMode.MASCULINE)) }
-            LaunchedEffect(mode) { prefs.edit().putString("fishing_mode", mode.name).apply() }
-            FishingTheme(mode) { FishingScreen(mode) { mode = it } }
+        setContent { FishingApp() }
+    }
+}
+
+private enum class AppTheme { MASCULINE, FEMININE }
+private enum class Page { CAPTURE, JOURNAL, RULES, LEADERBOARD }
+
+@Composable
+private fun FishingApp() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("fishing_settings", Context.MODE_PRIVATE) }
+    var theme by rememberSaveable { mutableStateOf(runCatching { AppTheme.valueOf(prefs.getString("theme", "MASCULINE")!!) }.getOrDefault(AppTheme.MASCULINE)) }
+    var page by rememberSaveable { mutableStateOf(Page.CAPTURE) }
+    val store = remember { JournalStore(context) }
+    var records by remember { mutableStateOf(store.load()) }
+    val colors = if (theme == AppTheme.MASCULINE) darkColorScheme(primary = Color(0xFF55C2C3), secondary = Color(0xFFFF8377), background = Color(0xFF0E171B), surface = Color(0xFF17242A))
+    else darkColorScheme(primary = Color(0xFFE58EB4), secondary = Color(0xFF65C7C2), background = Color(0xFF19131A), surface = Color(0xFF281E28))
+    MaterialTheme(colorScheme = colors) {
+        Scaffold(
+            topBar = { Header(theme) { theme = it; prefs.edit().putString("theme", it.name).apply() } },
+            bottomBar = { NavigationBar { Page.entries.forEach { item -> NavigationBarItem(selected = page == item, onClick = { page = item }, icon = { Icon(pageIcon(item), item.name) }, label = { Text(item.name.lowercase().replaceFirstChar { it.uppercase() }) }) } } }
+        ) { padding ->
+            Box(Modifier.padding(padding).fillMaxSize()) {
+                when (page) {
+                    Page.CAPTURE -> CaptureScreen(records) { record -> records = listOf(record) + records; store.save(records) }
+                    Page.JOURNAL -> JournalScreen(records, onDelete = { id -> records = records.filterNot { it.id == id }; store.save(records) }, onUpdate = { changed -> records = records.map { if (it.id == changed.id) changed else it }; store.save(records) })
+                    Page.RULES -> RulesScreen()
+                    Page.LEADERBOARD -> LeaderboardScreen(records)
+                }
+            }
         }
     }
 }
 
-private enum class FishingThemeMode { MASCULINE, FEMININE }
+private fun pageIcon(page: Page) = when (page) { Page.CAPTURE -> Icons.Default.PhotoCamera; Page.JOURNAL -> Icons.Default.Book; Page.RULES -> Icons.Default.Gavel; Page.LEADERBOARD -> Icons.Default.EmojiEvents }
 
-@Composable
-private fun FishingTheme(mode: FishingThemeMode, content: @Composable () -> Unit) {
-    val scheme = if (mode == FishingThemeMode.MASCULINE) {
-        androidx.compose.material3.darkColorScheme(
-            primary = Color(0xFF4AC2C8),
-            secondary = Color(0xFFEF6D62),
-            background = Color(0xFF101519),
-            surface = Color(0xFF182028),
-            onSurface = Color(0xFFF7FAFC),
-            onSurfaceVariant = Color(0xFFB6C2CC)
-        )
-    } else {
-        androidx.compose.material3.darkColorScheme(
-            primary = Color(0xFF4AC2C8),
-            secondary = Color(0xFFF17C8A),
-            background = Color(0xFF15141A),
-            surface = Color(0xFF201B24),
-            onSurface = Color(0xFFF7FAFC),
-            onSurfaceVariant = Color(0xFFD1C0CE)
-        )
-    }
-    MaterialTheme(colorScheme = scheme, content = content)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun Header(theme: AppTheme, onTheme: (AppTheme) -> Unit) {
+    TopAppBar(title = { Column { Text("Fishing Maxxed"); Text("Private, on-device catch journal", style = MaterialTheme.typography.labelSmall) } }, actions = {
+        TextButton(onClick = { onTheme(if (theme == AppTheme.MASCULINE) AppTheme.FEMININE else AppTheme.MASCULINE) }) { Text(if (theme == AppTheme.MASCULINE) "Masculine" else "Feminine") }
+    })
 }
 
 @Composable
-private fun FishingScreen(mode: FishingThemeMode, onModeChange: (FishingThemeMode) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("FISHING MAXXED", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text("Private catch journal", style = MaterialTheme.typography.headlineMedium)
-            }
+private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> Unit) {
+    val context = LocalContext.current
+    var cameraAllowed by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { cameraAllowed = it }
+    var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var photoFile by remember { mutableStateOf<File?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var referenceLength by rememberSaveable { mutableStateOf("6.00") }
+    var fishA by remember { mutableStateOf(Point(.18f, .52f)) }; var fishB by remember { mutableStateOf(Point(.82f, .52f)) }
+    var refA by remember { mutableStateOf(Point(.18f, .78f)) }; var refB by remember { mutableStateOf(Point(.42f, .78f)) }
+    val measurement = MeasurementCalculator.calculate(MeasurementInput(fishA, fishB, refA, refB, referenceLength.toDoubleOrNull() ?: 0.0))
+    var query by rememberSaveable { mutableStateOf("") }; var selected by remember { mutableStateOf<Species?>(null) }
+    var notes by rememberSaveable { mutableStateOf("") }; var method by rememberSaveable { mutableStateOf("rod and reel") }
+    var weight by rememberSaveable { mutableStateOf("") }
+    var region by rememberSaveable { mutableStateOf("Sacramento Valley") }; var status by rememberSaveable { mutableStateOf(CatchStatus.LOCAL_CATCH) }
+    var latitude by remember { mutableStateOf<Double?>(null) }; var longitude by remember { mutableStateOf<Double?>(null) }
+    var boundaryAmbiguous by remember { mutableStateOf(false) }
+    var locationAllowed by remember { mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        locationAllowed = result.values.any { it }; if (locationAllowed) lastLocation(context)?.let { location -> latitude = location.first; longitude = location.second; RegionResolver.resolve(location.first, location.second).let { match -> boundaryAmbiguous = match.ambiguous; match.region?.let { region = it } } }
+    }
+    LaunchedEffect(locationAllowed) { if (locationAllowed && latitude == null) lastLocation(context)?.let { location -> latitude = location.first; longitude = location.second; RegionResolver.resolve(location.first, location.second).let { match -> boundaryAmbiguous = match.ambiguous; match.region?.let { region = it } } } }
+    val rule = BundledRules.engine.evaluate(RuleRequest(region.takeIf { latitude != null }, selected?.id, LocalDate.now(), measurement?.length, method, existing.count { it.status == CatchStatus.KEEPER }, boundaryAmbiguous))
+    LaunchedEffect(rule.decision) { if (!rule.maySetKeeper && status == CatchStatus.KEEPER) status = CatchStatus.LOCAL_CATCH }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Capture and measure", style = MaterialTheme.typography.headlineSmall)
+        Text("Place a known-size reference beside the fish in the same plane. Drag both endpoint pairs after capture.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!cameraAllowed) PermissionPanel("Camera access is needed only to photograph a catch.", { cameraPermission.launch(Manifest.permission.CAMERA) }, { openSettings(context) })
+        else if (photoFile == null) {
+            CameraPreview { imageCapture = it }
+            Button(onClick = {
+                val file = File(context.filesDir.resolve("catch_photos").apply { mkdirs() }, "catch-${System.currentTimeMillis()}.jpg")
+                val capture = imageCapture ?: return@Button
+                capture.takePicture(ImageCapture.OutputFileOptions.Builder(file).build(), ContextCompat.getMainExecutor(context), object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) { photoFile = file; message = null }
+                    override fun onError(exception: ImageCaptureException) { message = "Capture failed: ${exception.message}" }
+                })
+            }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.PhotoCamera, null); Spacer(Modifier.width(8.dp)); Text("Take photo") }
+        } else {
+            MeasurementEditor(photoFile!!, fishA, fishB, refA, refB) { index, point -> when(index) { 0 -> fishA = point; 1 -> fishB = point; 2 -> refA = point; else -> refB = point } }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemePill("Masc", mode == FishingThemeMode.MASCULINE) { onModeChange(FishingThemeMode.MASCULINE) }
-                ThemePill("Fem", mode == FishingThemeMode.FEMININE) { onModeChange(FishingThemeMode.FEMININE) }
+                OutlinedTextField(referenceLength, { referenceLength = it }, label = { Text("Reference inches") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { photoFile?.delete(); photoFile = null }, modifier = Modifier.align(Alignment.CenterVertically)) { Text("Retake") }
             }
+            if (measurement == null) Text("Measurement unavailable: spread both handle pairs and enter a valid reference.", color = MaterialTheme.colorScheme.error)
+            else Text("${"%.2f".format(measurement.length)} in  |  ${measurement.confidence.name.lowercase()} confidence  |  expected uncertainty +/- ${"%.2f".format(measurement.uncertainty)} in", style = MaterialTheme.typography.titleMedium)
         }
-        FishingHero(mode)
-        FishingStatusRow()
-        FishingJournalCard()
+        HorizontalDivider()
+        Text("Confirm species", style = MaterialTheme.typography.titleLarge)
+        OutlinedTextField(query, { query = it; selected = null }, label = { Text("Search common or scientific name") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth())
+        SpeciesCatalog.search(query).take(5).forEach { species ->
+            ListItem(headlineContent = { Text(species.commonName) }, supportingContent = { Text(species.scientificName) }, trailingContent = { RadioButton(selected == species, { selected = species; query = species.commonName }) }, modifier = Modifier.clickable { selected = species; query = species.commonName })
+        }
+        Text(if (selected == null) "No species confirmed. Record will be Unverified." else "Confirmed by user: ${selected!!.commonName}", color = if (selected == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+        OutlinedTextField(notes, { notes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+        OutlinedTextField(weight, { weight = it }, label = { Text("Optional weight, pounds") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(method, { method = it.lowercase() }, label = { Text("Method or gear") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(region, { region = it }, label = { Text("Broad public region") }, modifier = Modifier.fillMaxWidth())
+        if (!locationAllowed) OutlinedButton(onClick = { locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }) { Icon(Icons.Default.LocationOn, null); Text(" Save private location") }
+        else Text(if (latitude == null) "Location permission granted; no last known fix available." else "Exact coordinates stored privately and excluded from default export.")
+        Text(rule.decision.label, color = if (rule.decision == RuleDecision.RELEASE_REQUIRED) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.titleMedium)
+        Text(rule.summary)
+        Text("Location classification: ${rule.rule?.origin?.name?.lowercase() ?: "unknown"}")
+        Column { CatchStatus.entries.chunked(2).forEach { choices -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { choices.forEach { option ->
+            FilterChip(selected = status == option, onClick = { status = option }, enabled = option != CatchStatus.KEEPER || rule.maySetKeeper, label = { Text(option.name.lowercase().replace('_', ' ')) })
+        } } } }
+        Button(onClick = {
+            val finalStatus = if (selected == null || measurement == null) CatchStatus.UNVERIFIED else status
+            val record = CatchRecord(speciesId = selected?.id, speciesName = selected?.commonName ?: "Unknown species", speciesConfirmed = selected != null,
+                lengthInches = measurement?.length, uncertaintyInches = measurement?.uncertainty, confidence = measurement?.confidence, weightPounds = weight.toDoubleOrNull(),
+                notes = notes, method = method, status = finalStatus, photoPath = photoFile?.absolutePath, latitude = latitude, longitude = longitude,
+                publicRegion = region.ifBlank { "Region withheld" }, origin = rule.rule?.origin ?: Origin.UNKNOWN, ruleDecision = rule.decision, ruleSummary = rule.summary)
+            onSave(record); photoFile = null; selected = null; query = ""; notes = ""; weight = ""; message = "Catch saved locally."
+        }, enabled = photoFile != null, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Save catch") }
+        message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
 }
 
-@Composable
-private fun ThemePill(text: String, active: Boolean, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
-    ) {
-        Text(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+@Composable private fun PermissionPanel(text: String, request: () -> Unit, settings: () -> Unit) {
+    Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(text); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = request) { Text("Allow") }; OutlinedButton(onClick = settings) { Text("Settings") } } } }
 }
 
-@Composable
-private fun FishingHero(mode: FishingThemeMode) {
-    Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Catch capture", style = MaterialTheme.typography.titleLarge)
-                Notice("Release required", MaterialTheme.colorScheme.secondary)
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(0.78f)
-                    .background(if (mode == FishingThemeMode.MASCULINE) Color(0xFF102028) else Color(0xFF261D28), RoundedCornerShape(8.dp))
-            ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    drawRect(Color(0x332E6E77))
-                    drawLine(Color(0xFF4AC2C8), Offset(size.width * 0.18f, size.height * 0.55f), Offset(size.width * 0.82f, size.height * 0.48f), 8f)
-                    drawCircle(Color(0xFF4AC2C8), 18f, Offset(size.width * 0.18f, size.height * 0.55f))
-                    drawCircle(Color(0xFF4AC2C8), 18f, Offset(size.width * 0.82f, size.height * 0.48f))
-                    drawOval(if (mode == FishingThemeMode.MASCULINE) Color(0x664AC2C8) else Color(0x66F17C8A), topLeft = Offset(size.width * 0.24f, size.height * 0.32f), size = androidx.compose.ui.geometry.Size(size.width * 0.46f, size.height * 0.22f))
-                    drawRect(Color(0x88FFFFFF), topLeft = Offset(size.width * 0.08f, size.height * 0.18f), size = androidx.compose.ui.geometry.Size(size.width * 0.13f, size.height * 0.3f), style = Stroke(width = 5f))
+@Composable private fun CameraPreview(onReady: (ImageCapture) -> Unit) {
+    val context = LocalContext.current; val lifecycleOwner = LocalLifecycleOwner.current
+    androidx.compose.ui.viewinterop.AndroidView(factory = { ctx ->
+        PreviewView(ctx).also { view ->
+            val future = ProcessCameraProvider.getInstance(ctx)
+            future.addListener({
+                val provider = future.get(); val capture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
+                val preview = Preview.Builder().build().also { it.setSurfaceProvider(view.surfaceProvider) }
+                runCatching { provider.unbindAll(); provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture); onReady(capture) }
+            }, ContextCompat.getMainExecutor(ctx))
+        }
+    }, modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f))
+}
+
+@Composable private fun MeasurementEditor(file: File, fishA: Point, fishB: Point, refA: Point, refB: Point, onMove: (Int, Point) -> Unit) {
+    val bitmap = remember(file.path) { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }
+    Box(Modifier.fillMaxWidth().aspectRatio(3f / 4f).background(Color.Black)) {
+        bitmap?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
+        Canvas(Modifier.fillMaxSize().pointerInput(fishA, fishB, refA, refB) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent(); val change = event.changes.firstOrNull() ?: continue
+                    if (change.pressed) {
+                        val normalized = Point((change.position.x / size.width).coerceIn(0f, 1f), (change.position.y / size.height).coerceIn(0f, 1f))
+                        val points = listOf(fishA, fishB, refA, refB)
+                        val nearest = points.indices.minBy { i -> hypot(points[i].x - normalized.x, points[i].y - normalized.y) }
+                        onMove(nearest, normalized); change.consume()
+                    }
                 }
-                Column(modifier = Modifier.align(Alignment.BottomStart).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("21.75 in", color = Color.White, style = MaterialTheme.typography.headlineLarge)
-                    Text("Confidence medium  |  Uncertainty ±0.5 in", color = Color(0xFFD8E2EA))
-                    Text("Prototype rules - verify with the official agency", color = MaterialTheme.colorScheme.secondary, fontSize = 12.sp)
-                }
             }
+        }) {
+            fun offset(p: Point) = Offset(p.x * size.width, p.y * size.height)
+            drawLine(Color(0xFF55E2E3), offset(fishA), offset(fishB), 6f); drawLine(Color.Yellow, offset(refA), offset(refB), 6f)
+            listOf(fishA, fishB).forEach { drawCircle(Color(0xFF55E2E3), 18f, offset(it), style = Stroke(7f)) }
+            listOf(refA, refB).forEach { drawCircle(Color.Yellow, 18f, offset(it), style = Stroke(7f)) }
         }
     }
+    Text("Cyan: fish axis. Yellow: known reference.", style = MaterialTheme.typography.labelMedium)
 }
 
-@Composable
-private fun FishingStatusRow() {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-        StatusCard(Modifier.weight(1f), "Species", "Suggested bass")
-        StatusCard(Modifier.weight(1f), "Region", "CA Demo Zone")
-        StatusCard(Modifier.weight(1f), "Privacy", "Coords hidden")
+@Composable private fun JournalScreen(records: List<CatchRecord>, onDelete: (String) -> Unit, onUpdate: (CatchRecord) -> Unit) {
+    val context = LocalContext.current; var filter by rememberSaveable { mutableStateOf("") }
+    val shown = records.filter { filter.isBlank() || it.speciesName.contains(filter, true) || it.status.name.contains(filter, true) }
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Catch journal", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f)); IconButton(onClick = { shareCsv(context, JournalStore.exportCsv(records)) }) { Icon(Icons.Default.Share, "Export") } }
+        Text("Default export uses broad region and never includes exact coordinates.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(filter, { filter = it }, label = { Text("Filter species or status") }, modifier = Modifier.fillMaxWidth())
+        if (shown.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No catches yet") }
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(shown, key = { it.id }) { record -> RecordCard(record, onDelete, onUpdate) } }
     }
 }
 
-@Composable
-private fun StatusCard(modifier: Modifier, label: String, value: String) {
-    Card(modifier = modifier, shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-            Text(value)
+@Composable private fun RecordCard(record: CatchRecord, onDelete: (String) -> Unit, onUpdate: (CatchRecord) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    var editedNotes by remember(record.id, record.notes) { mutableStateOf(record.notes) }
+    var editedStatus by remember(record.id, record.status) { mutableStateOf(record.status) }
+    Card(Modifier.fillMaxWidth().clickable { expanded = !expanded }) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(record.speciesName, style = MaterialTheme.typography.titleMedium); Text(record.status.name.lowercase().replace('_', ' ')) }; Text(record.lengthInches?.let { "%.2f in".format(it) } ?: "Not measured") }
+        Text("${date(record.createdAt)} | ${record.publicRegion}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (expanded) {
+            record.photoPath?.let { path -> remember(path) { BitmapFactory.decodeFile(path)?.asImageBitmap() }?.let { photo -> Image(photo, "Catch photo", Modifier.fillMaxWidth().heightIn(max = 260.dp), contentScale = ContentScale.Fit) } }
+            OutlinedTextField(editedNotes, { editedNotes = it }, label = { Text("Notes") }, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf(CatchStatus.LOCAL_CATCH, CatchStatus.RELEASED, CatchStatus.UNVERIFIED).forEach { choice -> FilterChip(editedStatus == choice, { editedStatus = choice }, label = { Text(choice.name.lowercase().replace('_', ' ')) }) } }
+            Text("Classification: ${record.origin.name.lowercase()}"); Text(record.ruleDecision.label); Text(record.ruleSummary); Text("Exact coordinates: private", style = MaterialTheme.typography.labelMedium)
+            Row { TextButton(onClick = { onUpdate(record.copy(notes = editedNotes, status = editedStatus)) }) { Icon(Icons.Default.Save, null); Text("Save changes") }; TextButton(onClick = { onDelete(record.id) }) { Icon(Icons.Default.Delete, null); Text("Delete") } }
         }
+    } }
+}
+
+@Composable private fun RulesScreen() {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Regulation verification", style = MaterialTheme.typography.headlineSmall)
+        Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Unable to verify - check official regulations", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.secondary); Text("The bundled data is a limited demonstration dataset and is not authorized to approve Keeper status. It does not claim daily-current California or worldwide coverage.") } }
+        Text("Evaluation inputs", style = MaterialTheme.typography.titleLarge)
+        listOf("Coordinates and boundary ambiguity", "Species and user confirmation", "Catch date and season", "Measured size or slot", "Local bag history", "Method and gear", "Closures", "Dataset effective dates and support status").forEach { ListItem(headlineContent = { Text(it) }, leadingContent = { Icon(Icons.Default.CheckCircle, null) }) }
+        Text("Source metadata", style = MaterialTheme.typography.titleLarge)
+        Text("California Department of Fish and Wildlife regulations portal\nhttps://wildlife.ca.gov/Regulations\nDataset: bundled-demo-v1 | Checked: 2026-06-21 | Authorization: unsupported")
+        Text("Always consult the official agency. App history may be incomplete and cannot establish your legal bag count.", color = MaterialTheme.colorScheme.error)
     }
 }
 
-@Composable
-private fun FishingJournalCard() {
-    Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("My Leaderboard", style = MaterialTheme.typography.titleLarge)
-            JournalEntry("Released", "Spotted bass", "21.75 in", MaterialTheme.colorScheme.secondary)
-            JournalEntry("Catch", "Trout", "15.25 in", MaterialTheme.colorScheme.primary)
-        }
+@Composable private fun LeaderboardScreen(records: List<CatchRecord>) {
+    val ranked = records.filter { it.lengthInches != null }.sortedByDescending { it.lengthInches }.take(20)
+    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("My Leaderboard", style = MaterialTheme.typography.headlineSmall); Text("Only records stored on this device. No global ranking.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(ranked.withIndex().toList()) { (index, record) ->
+            ListItem(headlineContent = { Text("${index + 1}. ${record.speciesName}") }, supportingContent = { Text(record.status.name.lowercase().replace('_', ' ')) }, trailingContent = { Text("%.2f in".format(record.lengthInches)) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth())
+        } }
     }
 }
 
-@Composable
-private fun JournalEntry(state: String, species: String, length: String, accent: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background, RoundedCornerShape(8.dp))
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(species)
-            Text(length, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-        }
-        Notice(state, accent)
-    }
-}
-
-@Composable
-private fun Notice(text: String, color: Color) {
-    Box(
-        modifier = Modifier
-            .background(color.copy(alpha = 0.16f), RoundedCornerShape(8.dp))
-            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(text, color = color, fontSize = 12.sp)
-    }
-}
-
-@Preview(device = Devices.PIXEL_4)
-@Composable
-private fun FishingMascPreview() {
-    FishingTheme(FishingThemeMode.MASCULINE) { FishingScreen(FishingThemeMode.MASCULINE) {} }
-}
-
-@Preview(device = Devices.PIXEL_4_XL)
-@Composable
-private fun FishingFemPreview() {
-    FishingTheme(FishingThemeMode.FEMININE) { FishingScreen(FishingThemeMode.FEMININE) {} }
-}
+private fun openSettings(context: Context) = context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+@SuppressLint("MissingPermission")
+private fun lastLocation(context: Context): Pair<Double, Double>? = runCatching {
+    val manager = context.getSystemService(LocationManager::class.java)
+    listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }.maxByOrNull { it.time }?.let { it.latitude to it.longitude }
+}.getOrNull()
+private fun shareCsv(context: Context, csv: String) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/csv"; putExtra(Intent.EXTRA_SUBJECT, "Fishing Maxxed catch journal"); putExtra(Intent.EXTRA_TEXT, csv) }, "Export private-safe journal")) }
+private fun date(epoch: Long) = DateTimeFormatter.ofPattern("MMM d, yyyy").format(Instant.ofEpochMilli(epoch).atZone(ZoneId.systemDefault()))
