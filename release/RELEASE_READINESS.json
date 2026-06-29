@@ -12,10 +12,11 @@
     "manual catch fallback for no-photo field entries",
     "manual searchable species confirmation",
     "expanded bundled species catalog with alias search",
+    "consistent human-readable labels and length formatting",
     "private local catch journal and personal leaderboard",
     "journal and leaderboard summary cards",
     "journal status filters and local leaderboard analytics",
-    "privacy-safe default CSV export",
+    "privacy-safe default CSV export with escaped review metadata",
     "fail-closed local regulation evaluator",
     "equal Masculine and Feminine feature access"
   ],
