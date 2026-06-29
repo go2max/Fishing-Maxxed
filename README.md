@@ -1,6 +1,6 @@
 # Fishing Maxxed
 
-Fishing Maxxed is an offline-first Android catch journal. It captures a fish photo with CameraX, measures length against a known reference with draggable correction handles, reports uncertainty, requires manual species confirmation, stores private catch records, redacts exact coordinates from default exports, and ranks only records on the current device.
+Fishing Maxxed is an offline-first Android catch journal. It captures a fish photo with CameraX, measures length against a known reference with draggable correction handles, supports manual no-photo entries, reports uncertainty, requires manual species confirmation, stores private catch records, redacts exact coordinates from default exports, and ranks only records on the current device.
 
 ## Website Summary
 
@@ -16,6 +16,7 @@ Current release status is tracked in [`READINESS.md`](READINESS.md). Do not mark
 
 - CameraX fish photo capture
 - Known-reference length measurement
+- Manual no-photo catch logging
 - Draggable correction handles
 - Uncertainty reporting
 - Manual species confirmation
