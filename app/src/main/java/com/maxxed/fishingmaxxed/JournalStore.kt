@@ -20,14 +20,44 @@ class JournalStore(context: Context) {
 
     companion object {
         fun exportCsv(records: List<CatchRecord>, includePrivateCoordinates: Boolean = false): String {
-            val header = mutableListOf("id", "date_epoch_ms", "species", "length_inches", "uncertainty_inches", "status", "public_region", "notes")
+            val header = mutableListOf(
+                "id",
+                "date_epoch_ms",
+                "species",
+                "species_confirmed",
+                "length_inches",
+                "uncertainty_inches",
+                "confidence",
+                "weight_pounds",
+                "method",
+                "status",
+                "public_region",
+                "origin",
+                "rule_decision",
+                "rule_summary",
+                "notes"
+            )
             if (includePrivateCoordinates) header += listOf("latitude", "longitude")
             return buildString {
                 appendLine(header.joinToString(","))
                 records.forEach { record ->
-                    val row = mutableListOf(record.id, record.createdAt.toString(), record.speciesName,
-                        record.lengthInches?.toString().orEmpty(), record.uncertaintyInches?.toString().orEmpty(),
-                        record.status.name, record.publicRegion, record.notes)
+                    val row = mutableListOf(
+                        record.id,
+                        record.createdAt.toString(),
+                        record.speciesName,
+                        record.speciesConfirmed.toString(),
+                        record.lengthInches?.toString().orEmpty(),
+                        record.uncertaintyInches?.toString().orEmpty(),
+                        record.confidence?.name.orEmpty(),
+                        record.weightPounds?.toString().orEmpty(),
+                        record.method,
+                        record.status.name,
+                        record.publicRegion,
+                        record.origin.name,
+                        record.ruleDecision.name,
+                        record.ruleSummary,
+                        record.notes
+                    )
                     if (includePrivateCoordinates) row += listOf(record.latitude?.toString().orEmpty(), record.longitude?.toString().orEmpty())
                     appendLine(row.joinToString(",") { csv(it) })
                 }

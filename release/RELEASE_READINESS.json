@@ -3,14 +3,20 @@
   "applicationId": "com.maxxed.fishingmaxxed",
   "versionName": "1.0.0",
   "versionCode": 2,
-  "assessmentDate": "2026-06-21",
+  "assessmentDate": "2026-06-29",
   "status": "NOT_READY_BLOCKED",
   "implemented": [
     "CameraX capture and retake",
     "known-reference measurement with correction handles and uncertainty",
+    "normalized capture-editor handle support for on-device measurement",
+    "manual catch fallback for no-photo field entries",
     "manual searchable species confirmation",
+    "expanded bundled species catalog with alias search",
+    "consistent human-readable labels and length formatting",
     "private local catch journal and personal leaderboard",
-    "privacy-safe default CSV export",
+    "journal and leaderboard summary cards",
+    "journal status filters and local leaderboard analytics",
+    "privacy-safe default CSV export with escaped review metadata",
     "fail-closed local regulation evaluator",
     "equal Masculine and Feminine feature access"
   ],
@@ -23,17 +29,21 @@
   },
   "artifacts": {
     "signedApk": null,
-    "signedAab": null
+    "signedAab": null,
+    "internalTestingNotes": "release/play/RELEASE_NOTES.md",
+    "playSubmissionChecklist": "release/play/PLAY_SUBMISSION_CHECKLIST.md",
+    "knownLimitations": "release/KNOWN_LIMITATIONS.md"
   },
   "verification": {
-    "gradle": "blocked before configuration: Gradle 8.9 download returned HTTP 403",
-    "unitTests": "not run",
-    "lint": "not run",
+    "gradle": "blocked before configuration: Gradle 8.9 download returned HTTP 403 on 2026-06-21; retry on 2026-06-28 used GRADLE_USER_HOME=/workspace/.gradle-home but failed because services.gradle.org was unreachable; 2026-06-29 external Gradle/download approval was rejected",
+    "unitTests": "not run in this environment",
+    "lint": "not run in this environment",
     "deviceTests": "not run",
     "signing": "not run"
   },
   "blockingIssues": [
     "Run unit tests, lint, and release builds with an available Gradle 8.9 distribution.",
+    "Verify the fixed normalized-handle measurement flow on device with printable fixtures.",
     "Complete capture-to-reopen testing on a physical Android device at multiple distances and lighting conditions.",
     "Provide and verify a private release key before producing signed APK/AAB artifacts.",
     "Add a production-trusted regulation package key and independently maintained source process before any Keeper authorization.",
