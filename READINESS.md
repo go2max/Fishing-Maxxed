@@ -1,12 +1,12 @@
 # Readiness
 
-Last updated: 2026-06-25
+Last updated: 2026-06-29
 
 ## Status
 
-**IMPLEMENTED BASELINE / RELEASE EVIDENCE PENDING**
+**RELEASE CANDIDATE PACKAGE PREPARED / FINAL BUILD EVIDENCE PENDING**
 
-Fishing Maxxed has an offline-first catch journal baseline, but it is not production-ready until current-branch verification, physical measurement/location acceptance, and signed release evidence are recorded.
+Fishing Maxxed has an offline-first catch journal baseline and now has a launch-readiness package for Play submission prep. It is not production-ready until current-branch verification, signed release evidence, and physical measurement/location/export acceptance are recorded.
 
 ## Current evidence
 
@@ -14,6 +14,9 @@ Fishing Maxxed has an offline-first catch journal baseline, but it is not produc
 - Build checks are documented: `./gradlew testDebugUnitTest lintDebug assembleDebug`.
 - Signed release path exists through `MAXXED_RELEASE_PROPERTIES`.
 - Regulation fixture is explicitly non-authoritative and returns `Unable to verify - check official regulations` rather than authorizing Keeper.
+- Release-safety unit tests cover measurement validity, invalid calibration rejection, coordinate-redacted default CSV export, explicit private-coordinate export behavior, non-authoritative regulation lockout, ambiguous-region lockout, and local-only leaderboard ordering.
+- Android CI workflow runs debug unit tests, debug lint, and debug assemble for PRs, main, and `codex/**` branches.
+- Play listing draft, data-safety draft, release acceptance checklist, and screenshot plan are tracked under `docs/`.
 
 ## Blocking launch gates
 
@@ -26,4 +29,6 @@ Fishing Maxxed has an offline-first catch journal baseline, but it is not produc
 
 ## Ready when
 
-Mark **READY** only after automated checks pass, signed artifacts are verified, physical capture/measurement/export testing is documented, non-authoritative regulation copy remains intact, and Play Store/legal metadata is complete.
+Mark **READY FOR INTERNAL TESTING** after automated checks pass, a signed AAB is produced, and physical smoke testing finds no launch blockers.
+
+Mark **READY FOR PRODUCTION** only after the internal testing build is accepted, screenshots are attached, Play Store/legal metadata is complete, the signed artifact evidence is recorded, and non-authoritative regulation copy remains intact.
