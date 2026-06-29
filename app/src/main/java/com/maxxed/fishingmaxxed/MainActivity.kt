@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class AppTheme { MASCULINE, FEMININE }
-private enum class Page { CAPTURE, JOURNAL, RULES, LEADERBOARD }
+private enum class Page { CAPTURE, JOURNAL, RULES, LEADERBOARD, ABOUT }
 private val Page.label: String get() = name.lowercase().replaceFirstChar { it.uppercase() }
 
 @Composable
@@ -91,13 +91,20 @@ private fun FishingApp() {
                     Page.JOURNAL -> JournalScreen(records, onDelete = { id -> records = records.filterNot { it.id == id }; store.save(records) }, onUpdate = { changed -> records = records.map { if (it.id == changed.id) changed else it }; store.save(records) })
                     Page.RULES -> RulesScreen()
                     Page.LEADERBOARD -> LeaderboardScreen(records)
+                    Page.ABOUT -> AboutScreen()
                 }
             }
         }
     }
 }
 
-private fun pageIcon(page: Page) = when (page) { Page.CAPTURE -> Icons.Default.PhotoCamera; Page.JOURNAL -> Icons.Default.Book; Page.RULES -> Icons.Default.Gavel; Page.LEADERBOARD -> Icons.Default.EmojiEvents }
+private fun pageIcon(page: Page) = when (page) {
+    Page.CAPTURE -> Icons.Default.PhotoCamera
+    Page.JOURNAL -> Icons.Default.Book
+    Page.RULES -> Icons.Default.Gavel
+    Page.LEADERBOARD -> Icons.Default.EmojiEvents
+    Page.ABOUT -> Icons.Default.Info
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable private fun Header(theme: AppTheme, onTheme: (AppTheme) -> Unit) {
@@ -332,6 +339,29 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(ranked.withIndex().toList()) { (index, record) ->
             ListItem(headlineContent = { Text("${index + 1}. ${record.speciesName}") }, supportingContent = { Text(record.status.label) }, trailingContent = { Text(record.lengthInches?.inchesLabel().orEmpty()) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth())
         } }
+    }
+}
+
+@Composable private fun AboutScreen() {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("About Fishing Maxxed", style = MaterialTheme.typography.headlineSmall)
+        Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Private by default", style = MaterialTheme.typography.titleLarge)
+            Text("Fishing Maxxed stores catches on this device. Default exports use broad region and do not include exact coordinates.")
+        } }
+        Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Measurement disclaimer", style = MaterialTheme.typography.titleLarge)
+            Text("Photo measurements are estimates based on your reference object, camera angle, and handle placement. They are for personal tracking, not official weighing or tournament judging.")
+        } }
+        Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Regulation disclaimer", style = MaterialTheme.typography.titleLarge)
+            Text("The bundled regulation screen is not authoritative and cannot approve Keeper status. Always check official agency regulations before keeping, releasing, or transporting fish.")
+        } }
+        Text("Support", style = MaterialTheme.typography.titleLarge)
+        Text("Email: support@techmaxxed.com")
+        Text("Privacy: https://techmaxxed.com/privacy")
+        Text("Terms: https://techmaxxed.com/terms")
+        Text("Version 1.0.0 | Offline-first release candidate", style = MaterialTheme.typography.labelMedium)
     }
 }
 
