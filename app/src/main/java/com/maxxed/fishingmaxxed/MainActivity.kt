@@ -24,11 +24,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -116,10 +116,12 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
     var referenceLength by rememberSaveable { mutableStateOf("6.00") }
     var fishA by remember { mutableStateOf(Point(.18f, .52f)) }; var fishB by remember { mutableStateOf(Point(.82f, .52f)) }
     var refA by remember { mutableStateOf(Point(.18f, .78f)) }; var refB by remember { mutableStateOf(Point(.42f, .78f)) }
-    val measurement = MeasurementCalculator.calculate(MeasurementInput(fishA, fishB, refA, refB, referenceLength.toDoubleOrNull() ?: 0.0))
+    val photoMeasurement = MeasurementCalculator.calculate(MeasurementInput(fishA, fishB, refA, refB, referenceLength.toDoubleOrNull() ?: 0.0))
     var query by rememberSaveable { mutableStateOf("") }; var selected by remember { mutableStateOf<Species?>(null) }
     var notes by rememberSaveable { mutableStateOf("") }; var method by rememberSaveable { mutableStateOf("rod and reel") }
-    var weight by rememberSaveable { mutableStateOf("") }
+    var weight by rememberSaveable { mutableStateOf("") }; var manualLength by rememberSaveable { mutableStateOf("") }
+    val manualMeasurement = manualLength.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { Measurement(it, 0.5, Confidence.LOW) }
+    val measurement = if (photoFile != null) photoMeasurement else manualMeasurement
     var region by rememberSaveable { mutableStateOf("Sacramento Valley") }; var status by rememberSaveable { mutableStateOf(CatchStatus.LOCAL_CATCH) }
     var latitude by remember { mutableStateOf<Double?>(null) }; var longitude by remember { mutableStateOf<Double?>(null) }
     var boundaryAmbiguous by remember { mutableStateOf(false) }
@@ -154,6 +156,7 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
             if (measurement == null) Text("Measurement unavailable: spread both handle pairs and enter a valid reference.", color = MaterialTheme.colorScheme.error)
             else Text("${"%.2f".format(measurement.length)} in  |  ${measurement.confidence.name.lowercase()} confidence  |  expected uncertainty +/- ${"%.2f".format(measurement.uncertainty)} in", style = MaterialTheme.typography.titleMedium)
         }
+        ManualLengthField(photoFile == null, manualLength) { manualLength = it }
         HorizontalDivider()
         Text("Confirm species", style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(query, { query = it; selected = null }, label = { Text("Search common or scientific name") }, leadingIcon = { Icon(Icons.Default.Search, null) }, modifier = Modifier.fillMaxWidth())
@@ -173,20 +176,35 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
         Column { CatchStatus.entries.chunked(2).forEach { choices -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { choices.forEach { option ->
             FilterChip(selected = status == option, onClick = { status = option }, enabled = option != CatchStatus.KEEPER || rule.maySetKeeper, label = { Text(option.name.lowercase().replace('_', ' ')) })
         } } } }
+        val canSave = photoFile != null || manualMeasurement != null || selected != null || notes.isNotBlank()
         Button(onClick = {
             val finalStatus = if (selected == null || measurement == null) CatchStatus.UNVERIFIED else status
             val record = CatchRecord(speciesId = selected?.id, speciesName = selected?.commonName ?: "Unknown species", speciesConfirmed = selected != null,
                 lengthInches = measurement?.length, uncertaintyInches = measurement?.uncertainty, confidence = measurement?.confidence, weightPounds = weight.toDoubleOrNull(),
                 notes = notes, method = method, status = finalStatus, photoPath = photoFile?.absolutePath, latitude = latitude, longitude = longitude,
                 publicRegion = region.ifBlank { "Region withheld" }, origin = rule.rule?.origin ?: Origin.UNKNOWN, ruleDecision = rule.decision, ruleSummary = rule.summary)
-            onSave(record); photoFile = null; selected = null; query = ""; notes = ""; weight = ""; message = "Catch saved locally."
-        }, enabled = photoFile != null, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Save catch") }
+            onSave(record); photoFile = null; selected = null; query = ""; notes = ""; weight = ""; manualLength = ""; message = "Catch saved locally."
+        }, enabled = canSave, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp)); Text("Save catch") }
         message?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
     }
 }
 
 @Composable private fun PermissionPanel(text: String, request: () -> Unit, settings: () -> Unit) {
     Card { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { Text(text); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = request) { Text("Allow") }; OutlinedButton(onClick = settings) { Text("Settings") } } } }
+}
+
+@Composable private fun ManualLengthField(enabled: Boolean, value: String, onChange: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            enabled = enabled,
+            label = { Text("Manual length, inches") },
+            supportingText = { Text(if (enabled) "Optional fallback when you cannot capture a usable measurement photo." else "Photo measurement is used for this catch.") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
 
 @Composable private fun CameraPreview(onReady: (ImageCapture) -> Unit) {
@@ -231,13 +249,40 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
 
 @Composable private fun JournalScreen(records: List<CatchRecord>, onDelete: (String) -> Unit, onUpdate: (CatchRecord) -> Unit) {
     val context = LocalContext.current; var filter by rememberSaveable { mutableStateOf("") }
-    val shown = records.filter { filter.isBlank() || it.speciesName.contains(filter, true) || it.status.name.contains(filter, true) }
+    var statusFilter by rememberSaveable { mutableStateOf<CatchStatus?>(null) }
+    val shown = records.filter { record ->
+        val matchesText = filter.isBlank() || record.speciesName.contains(filter, true) || record.status.name.contains(filter, true)
+        val matchesStatus = statusFilter == null || record.status == statusFilter
+        matchesText && matchesStatus
+    }
+    val summary = CatchAnalytics.summarize(records)
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) { Text("Catch journal", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f)); IconButton(onClick = { shareCsv(context, JournalStore.exportCsv(records)) }) { Icon(Icons.Default.Share, "Export") } }
         Text("Default export uses broad region and never includes exact coordinates.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatCard("Catches", summary.total.toString(), Modifier.weight(1f))
+            StatCard("Measured", summary.measured.toString(), Modifier.weight(1f))
+            StatCard("Released", summary.released.toString(), Modifier.weight(1f))
+            StatCard("Check", summary.unverified.toString(), Modifier.weight(1f))
+        }
         OutlinedTextField(filter, { filter = it }, label = { Text("Filter species or status") }, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+            FilterChip(selected = statusFilter == null, onClick = { statusFilter = null }, label = { Text("All") })
+            listOf(CatchStatus.LOCAL_CATCH, CatchStatus.RELEASED, CatchStatus.UNVERIFIED).forEach { choice ->
+                FilterChip(selected = statusFilter == choice, onClick = { statusFilter = choice }, label = { Text(choice.name.lowercase().replace('_', ' ')) })
+            }
+        }
         if (shown.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("No catches yet") }
         else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(shown, key = { it.id }) { record -> RecordCard(record, onDelete, onUpdate) } }
+    }
+}
+
+@Composable private fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(modifier, shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, style = MaterialTheme.typography.titleMedium)
+            Text(label, style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
@@ -271,10 +316,19 @@ private fun CaptureScreen(existing: List<CatchRecord>, onSave: (CatchRecord) -> 
 }
 
 @Composable private fun LeaderboardScreen(records: List<CatchRecord>) {
-    val ranked = records.filter { it.lengthInches != null }.sortedByDescending { it.lengthInches }.take(20)
+    val ranked = CatchAnalytics.localLeaderboard(records)
+    val summary = CatchAnalytics.summarize(records)
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("My Leaderboard", style = MaterialTheme.typography.headlineSmall); Text("Only records stored on this device. No global ranking.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(ranked.withIndex().toList()) { (index, record) ->
+        if (summary.measured > 0) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                StatCard("Measured", summary.measured.toString(), Modifier.weight(1f))
+                StatCard("Best", summary.bestLengthInches?.let { "%.2f in".format(it) } ?: "-", Modifier.weight(1f))
+                StatCard("Average", summary.averageLengthInches?.let { "%.2f in".format(it) } ?: "-", Modifier.weight(1f))
+            }
+        }
+        if (ranked.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Measured catches will appear here.") }
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(ranked.withIndex().toList()) { (index, record) ->
             ListItem(headlineContent = { Text("${index + 1}. ${record.speciesName}") }, supportingContent = { Text(record.status.name.lowercase().replace('_', ' ')) }, trailingContent = { Text("%.2f in".format(record.lengthInches)) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface), modifier = Modifier.fillMaxWidth())
         } }
     }
