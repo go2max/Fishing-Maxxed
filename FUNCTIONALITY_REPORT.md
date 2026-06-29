@@ -37,4 +37,7 @@ Fixtures were added for raw-coordinate measurement scaling, normalized UI-handle
 - Added status chips for quick journal review of local, released, and unverified records.
 - Added domain-level analytics coverage for summary cards and local leaderboard ordering.
 - Added `qa/DEVICE_QA_CHECKLIST.md` for the Samsung S22 Ultra validation pass.
+- Added consistent display labels/formatting for statuses, origins, confidence, lengths, and species aliases.
+- Added CSV escaping coverage for notes containing commas and quotes.
+- Added local validation commands and a device QA results template.
 - Rechecked release posture: the bundled regulation fixture remains non-authoritative, Keeper remains disabled unless a trusted authoritative rule package approves it, and default export remains privacy-safe.
