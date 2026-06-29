@@ -29,7 +29,10 @@
   },
   "artifacts": {
     "signedApk": null,
-    "signedAab": null
+    "signedAab": null,
+    "internalTestingNotes": "release/play/RELEASE_NOTES.md",
+    "playSubmissionChecklist": "release/play/PLAY_SUBMISSION_CHECKLIST.md",
+    "knownLimitations": "release/KNOWN_LIMITATIONS.md"
   },
   "verification": {
     "gradle": "blocked before configuration: Gradle 8.9 download returned HTTP 403 on 2026-06-21; retry on 2026-06-28 used GRADLE_USER_HOME=/workspace/.gradle-home but failed because services.gradle.org was unreachable; 2026-06-29 external Gradle/download approval was rejected",
