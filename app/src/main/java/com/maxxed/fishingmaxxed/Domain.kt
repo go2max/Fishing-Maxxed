@@ -16,6 +16,10 @@ enum class RuleDecision(val label: String) {
     UNABLE_TO_VERIFY("Unable to verify - check official regulations")
 }
 
+val CatchStatus.label: String get() = name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+val Origin.label: String get() = name.lowercase().replaceFirstChar { it.uppercase() }
+val Confidence.label: String get() = name.lowercase().replaceFirstChar { it.uppercase() }
+
 data class Point(val x: Float, val y: Float)
 data class MeasurementInput(
     val fishStart: Point,
@@ -26,6 +30,8 @@ data class MeasurementInput(
     val referenceUncertainty: Double = 0.1
 )
 data class Measurement(val length: Double, val uncertainty: Double, val confidence: Confidence)
+
+fun Double.inchesLabel(): String = "%.2f in".format(this)
 
 object MeasurementCalculator {
     fun calculate(input: MeasurementInput): Measurement? {
@@ -57,7 +63,10 @@ data class Species(
     val commonName: String,
     val scientificName: String,
     val variants: List<String> = emptyList()
-)
+) {
+    val subtitle: String
+        get() = if (variants.isEmpty()) scientificName else "$scientificName | Also: ${variants.joinToString()}"
+}
 
 object SpeciesCatalog {
     val all = listOf(
