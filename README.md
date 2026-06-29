@@ -12,6 +12,13 @@ Use this copy when referencing the app externally:
 
 Current release status is tracked in [`READINESS.md`](READINESS.md). Do not mark this app production-ready until current-branch checks, signed artifacts, physical capture/measurement/export acceptance, and non-authoritative regulation copy are verified.
 
+Launch-support docs are now tracked under [`docs/`](docs):
+
+- [`docs/PLAY_STORE_LISTING.md`](docs/PLAY_STORE_LISTING.md) - Play listing copy, keywords, release notes, screenshot script, and claim guardrails.
+- [`docs/DATA_SAFETY.md`](docs/DATA_SAFETY.md) - Play Console data-safety draft for the current offline-first build.
+- [`docs/RELEASE_ACCEPTANCE.md`](docs/RELEASE_ACCEPTANCE.md) - automated, signed-release, and physical-device acceptance checklist.
+- [`docs/SCREENSHOT_PLAN.md`](docs/SCREENSHOT_PLAN.md) - screenshot seed data, required captures, captions, and store-image guardrails.
+
 ## Features
 
 - CameraX fish photo capture
@@ -43,6 +50,16 @@ Release signing is opt-in. Set `MAXXED_RELEASE_PROPERTIES` to a properties file 
 ```bash
 ./gradlew testDebugUnitTest lintRelease assembleRelease bundleRelease
 ```
+
+## CI
+
+The Android CI workflow runs on pull requests, `main`, and `codex/**` branches:
+
+```bash
+./gradlew testDebugUnitTest lintDebug assembleDebug
+```
+
+The workflow uploads the debug APK as a GitHub Actions artifact for quick smoke testing.
 
 ## Release Gate
 
