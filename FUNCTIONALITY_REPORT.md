@@ -40,4 +40,5 @@ Fixtures were added for raw-coordinate measurement scaling, normalized UI-handle
 - Added consistent display labels/formatting for statuses, origins, confidence, lengths, and species aliases.
 - Added CSV escaping coverage for notes containing commas and quotes.
 - Added local validation commands and a device QA results template.
+- Added internal-test release notes, Play submission checklist, and known limitations for test handoff.
 - Rechecked release posture: the bundled regulation fixture remains non-authoritative, Keeper remains disabled unless a trusted authoritative rule package approves it, and default export remains privacy-safe.
