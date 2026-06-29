@@ -13,5 +13,13 @@ class PrivacyExportTest {
         assertFalse(csv.contains("38.123456")); assertFalse(csv.contains("-121.123456")); assertFalse(csv.contains("/private/photo.jpg"))
         assertTrue(csv.contains("Sacramento Valley"))
     }
+    @Test fun defaultExportIncludesUsefulNonPrivateMetadata() {
+        val csv = JournalStore.exportCsv(listOf(record))
+        assertTrue(csv.contains("species_confirmed"))
+        assertTrue(csv.contains("rule_decision"))
+        assertTrue(csv.contains("rod and reel"))
+        assertTrue(csv.contains("RELEASED"))
+        assertTrue(csv.contains("UNABLE_TO_VERIFY"))
+    }
     @Test fun privateExportRequiresExplicitOptIn() { assertTrue(JournalStore.exportCsv(listOf(record), true).contains("38.123456")) }
 }
