@@ -12,6 +12,17 @@ Use this copy when referencing the app externally:
 
 Current release status is tracked in [`READINESS.md`](READINESS.md). Do not mark this app production-ready until current-branch checks, signed artifacts, physical capture/measurement/export acceptance, and non-authoritative regulation copy are verified.
 
+## Launch Pack
+
+Submission material is staged under `docs/`:
+
+- [`docs/PLAY_STORE_LISTING.md`](docs/PLAY_STORE_LISTING.md) — app name, short description, full description, screenshots, category, tags, support, and policy URL notes.
+- [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) — Play release notes for the initial candidate.
+- [`docs/DATA_SAFETY.md`](docs/DATA_SAFETY.md) — working Play Console Data safety answers for the local-only baseline.
+- [`docs/PRIVACY_POLICY.md`](docs/PRIVACY_POLICY.md) — hostable privacy policy draft.
+- [`docs/PHYSICAL_ACCEPTANCE.md`](docs/PHYSICAL_ACCEPTANCE.md) — device acceptance checklist before submission.
+- [`docs/RELEASE_BUILD_RUNBOOK.md`](docs/RELEASE_BUILD_RUNBOOK.md) — local signed build, hash, signer, and upload workflow.
+
 ## Features
 
 - CameraX fish photo capture
@@ -43,6 +54,8 @@ Release signing is opt-in. Set `MAXXED_RELEASE_PROPERTIES` to a properties file 
 ```bash
 ./gradlew testDebugUnitTest lintRelease assembleRelease bundleRelease
 ```
+
+For full submission steps, use [`docs/RELEASE_BUILD_RUNBOOK.md`](docs/RELEASE_BUILD_RUNBOOK.md).
 
 ## Release Gate
 
