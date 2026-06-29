@@ -31,15 +31,21 @@ object MeasurementCalculator {
     fun calculate(input: MeasurementInput): Measurement? {
         val fishPixels = hypot(input.fishEnd.x - input.fishStart.x, input.fishEnd.y - input.fishStart.y).toDouble()
         val referencePixels = hypot(input.referenceEnd.x - input.referenceStart.x, input.referenceEnd.y - input.referenceStart.y).toDouble()
-        if (fishPixels < 20 || referencePixels < 20 || input.referenceLength <= 0) return null
+        val normalizedHandles = listOf(input.fishStart, input.fishEnd, input.referenceStart, input.referenceEnd)
+            .all { it.x in 0f..1f && it.y in 0f..1f }
+        val minimumFishSpan = if (normalizedHandles) 0.05 else 20.0
+        val minimumReferenceSpan = if (normalizedHandles) 0.03 else 20.0
+        if (fishPixels < minimumFishSpan || referencePixels < minimumReferenceSpan || input.referenceLength <= 0) return null
         val length = fishPixels / referencePixels * input.referenceLength
         val ratio = referencePixels / fishPixels
         val perspective = length * 0.02
-        val pixelError = length * 4.0 / fishPixels
+        val pixelError = if (normalizedHandles) length * 0.01 / fishPixels else length * 4.0 / fishPixels
         val uncertainty = kotlin.math.sqrt(input.referenceUncertainty * input.referenceUncertainty + perspective * perspective + pixelError * pixelError)
         val confidence = when {
-            fishPixels >= 500 && ratio >= .25 && input.referenceUncertainty / input.referenceLength <= .01 -> Confidence.HIGH
-            fishPixels >= 180 && ratio >= .12 -> Confidence.MEDIUM
+            normalizedHandles && fishPixels >= .55 && ratio >= .25 && input.referenceUncertainty / input.referenceLength <= .01 -> Confidence.HIGH
+            normalizedHandles && fishPixels >= .20 && ratio >= .12 -> Confidence.MEDIUM
+            !normalizedHandles && fishPixels >= 500 && ratio >= .25 && input.referenceUncertainty / input.referenceLength <= .01 -> Confidence.HIGH
+            !normalizedHandles && fishPixels >= 180 && ratio >= .12 -> Confidence.MEDIUM
             else -> Confidence.LOW
         }
         return Measurement(length, uncertainty.coerceAtLeast(0.1), confidence)
@@ -60,16 +66,34 @@ object SpeciesCatalog {
         Species("spotted_bass", "Spotted bass", "Micropterus punctulatus"),
         Species("striped_bass", "Striped bass", "Morone saxatilis"),
         Species("rainbow_trout", "Rainbow trout", "Oncorhynchus mykiss", listOf("Steelhead")),
+        Species("brook_trout", "Brook trout", "Salvelinus fontinalis"),
         Species("brown_trout", "Brown trout", "Salmo trutta"),
+        Species("cutthroat_trout", "Cutthroat trout", "Oncorhynchus clarkii"),
+        Species("kokanee_salmon", "Kokanee salmon", "Oncorhynchus nerka", listOf("Sockeye salmon")),
         Species("chinook_salmon", "Chinook salmon", "Oncorhynchus tshawytscha"),
+        Species("coho_salmon", "Coho salmon", "Oncorhynchus kisutch", listOf("Silver salmon")),
         Species("channel_catfish", "Channel catfish", "Ictalurus punctatus"),
+        Species("white_catfish", "White catfish", "Ameiurus catus"),
+        Species("flathead_catfish", "Flathead catfish", "Pylodictis olivaris"),
         Species("bluegill", "Bluegill", "Lepomis macrochirus"),
+        Species("green_sunfish", "Green sunfish", "Lepomis cyanellus"),
+        Species("redear_sunfish", "Redear sunfish", "Lepomis microlophus"),
         Species("crappie", "Crappie", "Pomoxis spp."),
+        Species("white_crappie", "White crappie", "Pomoxis annularis"),
+        Species("black_crappie", "Black crappie", "Pomoxis nigromaculatus"),
         Species("common_carp", "Common carp", "Cyprinus carpio"),
-        Species("white_sturgeon", "White sturgeon", "Acipenser transmontanus")
+        Species("white_sturgeon", "White sturgeon", "Acipenser transmontanus"),
+        Species("american_shad", "American shad", "Alosa sapidissima"),
+        Species("threadfin_shad", "Threadfin shad", "Dorosoma petenense"),
+        Species("sacramento_perch", "Sacramento perch", "Archoplites interruptus"),
+        Species("hitch", "Hitch", "Lavinia exilicauda"),
+        Species("sacramento_sucker", "Sacramento sucker", "Catostomus occidentalis")
     )
     fun search(query: String): List<Species> = all.filter {
-        query.isBlank() || it.commonName.contains(query, true) || it.scientificName.contains(query, true)
+        query.isBlank() ||
+            it.commonName.contains(query, true) ||
+            it.scientificName.contains(query, true) ||
+            it.variants.any { variant -> variant.contains(query, true) }
     }
 }
 
@@ -95,6 +119,36 @@ data class CatchRecord(
     val ruleDecision: RuleDecision,
     val ruleSummary: String
 )
+
+data class CatchSummary(
+    val total: Int,
+    val measured: Int,
+    val released: Int,
+    val unverified: Int,
+    val keeper: Int,
+    val bestLengthInches: Double?,
+    val averageLengthInches: Double?
+)
+
+object CatchAnalytics {
+    fun summarize(records: List<CatchRecord>): CatchSummary {
+        val measuredLengths = records.mapNotNull { it.lengthInches }
+        return CatchSummary(
+            total = records.size,
+            measured = measuredLengths.size,
+            released = records.count { it.status == CatchStatus.RELEASED },
+            unverified = records.count { it.status == CatchStatus.UNVERIFIED },
+            keeper = records.count { it.status == CatchStatus.KEEPER },
+            bestLengthInches = measuredLengths.maxOrNull(),
+            averageLengthInches = measuredLengths.takeIf { it.isNotEmpty() }?.average()
+        )
+    }
+
+    fun localLeaderboard(records: List<CatchRecord>, limit: Int = 20): List<CatchRecord> =
+        records.filter { it.lengthInches != null }
+            .sortedWith(compareByDescending<CatchRecord> { it.lengthInches }.thenByDescending { it.createdAt })
+            .take(limit)
+}
 
 data class RuleSource(val title: String, val url: String, val checked: LocalDate)
 data class RegulationRule(
